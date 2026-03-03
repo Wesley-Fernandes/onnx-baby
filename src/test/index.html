@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>TTS Streaming</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-900 text-white min-h-screen flex items-center justify-center">
+
+  <div class="w-full max-w-2xl bg-zinc-800 p-6 rounded-2xl shadow-2xl space-y-4">
+    <h1 class="text-2xl font-bold">TTS Streaming (Piper)</h1>
+
+    <textarea
+      id="text"
+      class="w-full h-32 p-3 rounded-lg bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      placeholder="Digite o texto para gerar áudio..."
+    >Hércules enfrentou Medusa em uma caverna sombria.</textarea>
+
+    <div class="flex gap-3">
+      <button
+        id="generate"
+        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold transition"
+      >
+        Gerar Áudio
+      </button>
+
+      <button
+        id="stop"
+        class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition"
+      >
+        Parar
+      </button>
+    </div>
+
+    <div class="text-sm text-zinc-400" id="status">
+      Status: Desconectado
+    </div>
+
+    <audio id="player" controls class="w-full mt-4"></audio>
+  </div>
+
+<script>
+let ws
+let audioChunks = []
+
+const statusEl = document.getElementById("status")
+const textEl = document.getElementById("text")
+const player = document.getElementById("player")
+
+function connect() {
+  ws = new WebSocket("ws://localhost:3000")
+  ws.binaryType = "arraybuffer"
+
+  ws.onopen = () => {
+    statusEl.innerText = "Status: Conectado"
+  }
+
+  ws.onmessage = (event) => {
+    if (typeof event.data === "string") {
+      const msg = JSON.parse(event.data)
+      if (msg.done) {
+        finalizeAudio()
+      }
+      return
+    }
+
+    audioChunks.push(new Uint8Array(event.data))
+  }
+
+  ws.onclose = () => {
+    statusEl.innerText = "Status: Desconectado"
+  }
+}
+
+function finalizeAudio() {
+  const pcmData = concatenate(audioChunks)
+
+  const wavBuffer = createWavFile(pcmData, 22050, 1, 16) 
+  // ajuste sample rate se necessário (22050 ou 16000)
+
+  const blob = new Blob([wavBuffer], { type: "audio/wav" })
+  const url = URL.createObjectURL(blob)
+
+  player.src = url
+  player.play()
+
+  audioChunks = []
+}
+
+function concatenate(chunks) {
+  let totalLength = 0
+  for (const chunk of chunks) totalLength += chunk.length
+
+  const result = new Uint8Array(totalLength)
+  let offset = 0
+
+  for (const chunk of chunks) {
+    result.set(chunk, offset)
+    offset += chunk.length
+  }
+
+  return result
+}
+
+function createWavFile(pcmData, sampleRate, numChannels, bitsPerSample) {
+  const blockAlign = numChannels * bitsPerSample / 8
+  const byteRate = sampleRate * blockAlign
+  const dataSize = pcmData.length
+  const buffer = new ArrayBuffer(44 + dataSize)
+  const view = new DataView(buffer)
+
+  function writeString(offset, str) {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i))
+    }
+  }
+
+  writeString(0, 'RIFF')
+  view.setUint32(4, 36 + dataSize, true)
+  writeString(8, 'WAVE')
+  writeString(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, numChannels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, byteRate, true)
+  view.setUint16(32, blockAlign, true)
+  view.setUint16(34, bitsPerSample, true)
+  writeString(36, 'data')
+  view.setUint32(40, dataSize, true)
+
+  new Uint8Array(buffer, 44).set(pcmData)
+
+  return buffer
+}
+
+document.getElementById("generate").onclick = () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connect()
+    setTimeout(sendText, 300)
+  } else {
+    sendText()
+  }
+}
+
+function sendText() {
+  audioChunks = []
+
+  ws.send(JSON.stringify({
+    text: textEl.value,
+    options: {
+      sentenceSilence: 0.35,
+      expressiveness: 0.2
+    }
+  }))
+
+  statusEl.innerText = "Status: Gerando áudio..."
+}
+
+document.getElementById("stop").onclick = () => {
+  if (ws) ws.close()
+}
+</script>
+
+</body>
+</html>
