@@ -1,0 +1,179 @@
+﻿# ONNX BABY 🤘🔥
+
+**ROCK. ROLL. BABY.**
+
+Ultra-simple Text-to-Speech built with pure **TypeScript** and **ONNX Runtime**.
+Just load a `.onnx` model and let it scream.
+
+---
+
+## 🎤 What is ONNX BABY?
+
+ONNX BABY is a lightweight TTS runtime for Node.js that:
+
+- Loads ONNX voice models
+- Generates PCM audio
+- Streams audio in real time
+- Runs fully in TypeScript
+
+It’s designed for:
+
+- Real-time servers
+- AI assistants
+- Games
+- Voice bots
+- Experimental audio projects
+
+---
+
+## 🚀 Features
+
+- ⚡ Pure TypeScript
+- 🧠 ONNX Runtime (Node binding)
+- 🔊 PCM streaming
+- 📦 Zero native compilation
+- 🎛 Simple API
+- 🤘 Fast startup
+
+---
+
+## 📦 Installation
+
+```bash
+npm install onnx-baby
+```
+
+---
+
+## 🧠 Load a Voice
+
+```ts
+import { setVoice } from "onnx-baby";
+
+await setVoice("./models/model.onnx");
+```
+
+Model loads once into memory.
+
+---
+
+## 🔊 Generate Audio (Streaming)
+
+```ts
+import { streamTextToAudio } from "onnx-baby";
+
+const stream = streamTextToAudio("ROCK AND ROLL BABY!", {
+  sentenceSilence: 0.3,
+  expressiveness: 0.4,
+});
+
+for await (const chunk of stream) {
+  console.log("Chunk size:", chunk.length);
+}
+```
+
+Output format:
+
+- PCM 16-bit
+- Mono
+- 22050 Hz (default)
+
+---
+
+## 🌐 Example: Express + WebSocket
+
+```ts
+import express from "express";
+import { WebSocketServer } from "ws";
+import { setVoice, streamTextToAudio } from "onnx-baby";
+
+await setVoice("./models/model.onnx");
+
+const app = express();
+const server = app.listen(3000);
+
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", (ws) => {
+  ws.on("message", async (msg) => {
+    const { text } = JSON.parse(msg.toString());
+
+    const stream = streamTextToAudio(text);
+
+    for await (const chunk of stream) {
+      ws.send(chunk);
+    }
+
+    ws.send(JSON.stringify({ done: true }));
+  });
+});
+```
+
+---
+
+## ⚙ Options
+
+| Option          | Type   | Default | Description             |
+| --------------- | ------ | ------- | ----------------------- |
+| sentenceSilence | number | 0.3     | Pause between sentences |
+| expressiveness  | number | 0.2     | Emotion intensity       |
+| speed           | number | 1.0     | Speech rate multiplier  |
+
+---
+
+## 🧪 Performance
+
+- Model load: ~100–400ms (depends on size)
+- First audio chunk: typically < 150ms
+- Memory footprint: minimal (single model instance)
+
+---
+
+## 🧱 Architecture
+
+```
+Text
+ ↓
+Tokenizer
+ ↓
+ONNX Runtime (Node)
+ ↓
+PCM Buffer
+ ↓
+Stream (Async Generator)
+```
+
+---
+
+## 📌 Use Cases
+
+- Real-time AI voice agents
+- Browser TTS via WebSocket
+- MMO NPC voice systems
+- Streaming voice assistants
+- CLI voice tools
+
+---
+
+## 🛣 Roadmap
+
+- [ ] Built-in WAV encoder
+- [ ] Multi-model hot switching
+- [ ] Voice pitch control
+- [ ] Browser WASM build
+- [ ] GPU acceleration support
+
+---
+
+## 📜 License
+
+MIT
+
+---
+
+## 🤘 Philosophy
+
+ROCK.
+ROLL.
+BABY.
+
